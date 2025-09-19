@@ -17,12 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return tagColorMap[chave] || "#757575"; // cinza para tags desconhecidas
   }
 
-  const tarefasContainer = document.querySelector("ul"); // ajuste para o container de tarefas
-
-  // Salvar tarefas no localStorage
+  // Salvar todas as tarefas do DOM no localStorage
   function salvarTarefas() {
     const tarefas = [];
     document.querySelectorAll("li").forEach(li => {
+      const containerId = li.closest("ul").id; // salvar também a lista da tarefa
       const titulo = li.querySelector(".task-title").textContent;
       const pessoas = Array.from(li.querySelectorAll(".pessoa")).map(p => ({
         nome: p.dataset.nome,
@@ -31,13 +30,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }));
       const tags = Array.from(li.querySelectorAll(".tag")).map(t => t.textContent);
       const completed = li.classList.contains("completed");
-      tarefas.push({ titulo, pessoas, tags, completed });
+      tarefas.push({ titulo, pessoas, tags, completed, containerId });
     });
     localStorage.setItem("tarefas", JSON.stringify(tarefas));
   }
 
-  // Criar um <li> de tarefa
-  function criarTarefa({ titulo, pessoas = [], tags = [], completed = false }) {
+  // Criar um <li> de tarefa e adicioná-la ao container correto
+  function criarTarefa({ titulo, pessoas = [], tags = [], completed = false, container }) {
+    if (!container) return; // garante que temos onde colocar a tarefa
+
     const li = document.createElement("li");
     if (completed) li.classList.add("completed");
 
@@ -70,18 +71,23 @@ document.addEventListener("DOMContentLoaded", () => {
         <button class="remover">Remover</button>
       </div>
     `;
-    tarefasContainer.appendChild(li);
+    container.appendChild(li);
   }
 
-  // Carregar tarefas do localStorage
+  // Carregar tarefas do localStorage e distribuir nas listas corretas
   function carregarTarefas() {
     const tarefas = JSON.parse(localStorage.getItem("tarefas") || "[]");
-    tarefas.forEach(t => criarTarefa(t));
+    tarefas.forEach(t => {
+      const container = document.getElementById(t.containerId);
+      if (container) {
+        criarTarefa({ ...t, container });
+      }
+    });
   }
 
   carregarTarefas();
 
-  // Adicionar nova tarefa
+  // Adicionar nova tarefa ao enviar o formulário
   document.body.addEventListener("submit", (e) => {
     if (e.target.matches(".card-body form")) {
       e.preventDefault();
@@ -99,7 +105,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
 
-      criarTarefa({ titulo: descricao, pessoas, tags });
+      // Pega o <ul> relativo ao formulário do card
+      const tarefasContainer = form.closest(".card-body").querySelector("ul");
+
+      criarTarefa({ titulo: descricao, pessoas, tags, container: tarefasContainer });
 
       form.reset();
       salvarTarefas();
